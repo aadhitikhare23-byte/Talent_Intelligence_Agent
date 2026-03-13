@@ -107,7 +107,7 @@ with tab2:
             have = user_set & top_market
             gaps = top_market - user_set
 
-            st.subheader(f"📋 Results for {target_role} ({len(role_jobs):,} postings)")
+            st.subheader(f"📋 Results for {target_role} ({len(role_jobs)} postings)")
 
             col1, col2, col3 = st.columns(3)
             col1.metric("Match Score", f"{len(have)}/{len(top_market)}")
@@ -155,7 +155,7 @@ with tab3:
             with st.spinner("Thinking..."):
                 q = question.lower()
 
-                # Location detection dictionary
+                # Location detection
                 location_keywords = {
                     "arizona": "AZ", "phoenix": "Phoenix",
                     "new york": "NY", "new jersey": "NJ",
@@ -176,7 +176,7 @@ with tab3:
                         loc_filter = loc
                         break
 
-                # FAISS semantic search for source jobs
+                # FAISS semantic search
                 query_vec = model.encode([question]).astype("float32")
                 distances, indices = index.search(query_vec, 5)
                 results = df.iloc[indices[0]].copy()
@@ -187,7 +187,6 @@ with tab3:
                     salary_data = salary_data.dropna(subset=["min_salary","max_salary"])
                     salary_data = salary_data[salary_data["max_salary"] < 500000]
 
-                    # Filter by location if detected
                     if loc_filter:
                         salary_data = salary_data[salary_data["location"].str.contains(
                             loc_filter, case=False, na=False)]
@@ -196,10 +195,10 @@ with tab3:
                         low = int(salary_data["min_salary"].median())
                         high = int(salary_data["max_salary"].median())
                         loc_str = f" in {detected_location}" if detected_location else ""
-                        answer = (f"Based on {len(salary_data):,} analyst postings{loc_str} "
-                                  f"with salary data, the typical range is ${low:,}–${high:,}/year. "
+                        answer = (f"Based on {len(salary_data)} analyst postings{loc_str} "
+                                  f"with salary data, the typical range is "
+                                  f"${low//1000}K-${high//1000}K/year. "
                                   f"Mid-Senior level roles average significantly higher than entry level.")
-                        # Show location-filtered source jobs
                         if loc_filter:
                             results = salary_data.head(5)
                     else:
@@ -219,7 +218,7 @@ with tab3:
                                      for s in skill_keywords}
                     top5 = [s.upper() for s, _ in sorted(market_skills.items(),
                                                           key=lambda x: x[1], reverse=True)[:5]]
-                    answer = (f"For {role.title()} roles ({len(role_jobs):,} postings), "
+                    answer = (f"For {role.title()} roles ({len(role_jobs)} postings), "
                               f"the top 5 most demanded skills are: {', '.join(top5)}.")
 
                 elif "location" in q or "where" in q or "city" in q:
@@ -239,7 +238,7 @@ with tab3:
                         "remote|united states", case=False, na=False)]
                     top_cos = remote_jobs["company_name"].dropna()\
                         .value_counts().head(5).index.tolist()
-                    answer = (f"Found {len(remote_jobs):,} remote/US-wide postings. "
+                    answer = (f"Found {len(remote_jobs)} remote/US-wide postings. "
                               f"Top hiring companies: {', '.join(top_cos)}.")
 
                 else:
