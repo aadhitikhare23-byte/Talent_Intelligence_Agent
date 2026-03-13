@@ -251,7 +251,7 @@ with tab3:
                               f"Try asking about skills, salary, location, or companies!")
 
             st.subheader("💡 Answer")
-            st.info(answer)
+            st.success(answer)
 
             st.subheader("📄 Source Jobs Used")
             st.dataframe(results[["title","company_name","location",
