@@ -135,8 +135,10 @@ talent-intelligence-agent/
 
 
 
-## What I'd Add Next
-Streamlit web app so anyone can use it without touching code
+🔗 Live App
+Try it here — no code, no setup needed:
+talentintelligenceagent-ffryfnazrn9e4idnbv7udc.streamlit.app
+
 
 **Let's Connect**
 
