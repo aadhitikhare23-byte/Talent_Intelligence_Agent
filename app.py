@@ -142,6 +142,7 @@ with tab3:
     example_questions = [
         "What skills do I need for a People Analyst role?",
         "What is the salary range for a data analyst?",
+        "What is the minimum salary of an analyst in Arizona?",
         "Which locations have the most business analyst jobs?",
         "What companies are hiring business analysts remotely?"
     ]
@@ -152,25 +153,58 @@ with tab3:
     if st.button("Ask Agent", key="agent"):
         if question.strip():
             with st.spinner("Thinking..."):
+                q = question.lower()
+
+                # Location detection dictionary
+                location_keywords = {
+                    "arizona": "AZ", "phoenix": "Phoenix",
+                    "new york": "NY", "new jersey": "NJ",
+                    "california": "CA", "los angeles": "Los Angeles",
+                    "san francisco": "San Francisco",
+                    "texas": "TX", "dallas": "Dallas", "houston": "Houston",
+                    "florida": "FL", "miami": "Miami",
+                    "chicago": "Chicago", "seattle": "Seattle",
+                    "boston": "Boston", "denver": "Denver",
+                    "atlanta": "Atlanta", "charlotte": "Charlotte",
+                    "washington": "Washington", "virginia": "VA"
+                }
+                detected_location = None
+                loc_filter = None
+                for keyword, loc in location_keywords.items():
+                    if keyword in q:
+                        detected_location = keyword.title()
+                        loc_filter = loc
+                        break
+
+                # FAISS semantic search for source jobs
                 query_vec = model.encode([question]).astype("float32")
                 distances, indices = index.search(query_vec, 5)
                 results = df.iloc[indices[0]].copy()
-
-                q = question.lower()
 
                 if "salary" in q:
                     salary_data = df[df["title"].str.contains(
                         "analyst", case=False, na=False)].copy()
                     salary_data = salary_data.dropna(subset=["min_salary","max_salary"])
                     salary_data = salary_data[salary_data["max_salary"] < 500000]
+
+                    # Filter by location if detected
+                    if loc_filter:
+                        salary_data = salary_data[salary_data["location"].str.contains(
+                            loc_filter, case=False, na=False)]
+
                     if len(salary_data) > 0:
                         low = int(salary_data["min_salary"].median())
                         high = int(salary_data["max_salary"].median())
-                        answer = (f"Based on {len(salary_data):,} analyst postings with salary data, "
-                                  f"the typical range is ${low:,}–${high:,}/year. "
+                        loc_str = f" in {detected_location}" if detected_location else ""
+                        answer = (f"Based on {len(salary_data):,} analyst postings{loc_str} "
+                                  f"with salary data, the typical range is ${low:,}–${high:,}/year. "
                                   f"Mid-Senior level roles average significantly higher than entry level.")
+                        # Show location-filtered source jobs
+                        if loc_filter:
+                            results = salary_data.head(5)
                     else:
-                        answer = "Salary data is limited in this dataset. Most postings do not include compensation details."
+                        answer = (f"Not enough salary data found for {detected_location or 'that location'}. "
+                                  f"Try a broader search like 'salary range for data analyst'.")
 
                 elif "skill" in q or "require" in q or "need" in q:
                     role = next((r for r in ["people analyst","data analyst",
