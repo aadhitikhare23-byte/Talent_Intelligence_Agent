@@ -29,8 +29,7 @@ def build_index(_df, _model):
     texts = _df["embed_text"].fillna("").tolist()
     embeddings = _model.encode(texts, show_progress_bar=False, batch_size=64)
     embeddings = np.array(embeddings).astype("float32")
-    faiss.normalize_L2(embeddings)
-    index = faiss.IndexFlatIP(embeddings.shape[1])
+    index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
     return index, embeddings
 
@@ -56,27 +55,27 @@ with tab1:
         if query.strip():
             with st.spinner("Searching..."):
                 query_vec = model.encode([query]).astype("float32")
-                faiss.normalize_L2(query_vec)
                 distances, indices = index.search(query_vec, top_k)
                 results = df.iloc[indices[0]].copy()
-                results["similarity_score"] = np.round(distances[0], 2)
+                scores = np.round((1 / (1 + distances[0])) * 100).astype(int)
+                results["similarity_score"] = scores
 
             st.success(f"Top {top_k} matches found!")
             for _, row in results.iterrows():
                 score = row['similarity_score']
-                if score >= 0.85:
-                    quality = "🟢 Excellent"
-                elif score >= 0.75:
+                if score >= 60:
+                    quality = "🟢 Strong"
+                elif score >= 55:
                     quality = "🟡 Good"
                 else:
                     quality = "🟠 Fair"
-                with st.expander(f"💼 {row.get('title','N/A')} @ {row.get('company_name','N/A')} — {quality} ({score})"):
+                with st.expander(f"💼 {row.get('title','N/A')} @ {row.get('company_name','N/A')} — {quality} {score}%"):
                     col1, col2 = st.columns(2)
                     with col1:
                         st.write(f"📍 **Location:** {row.get('location','N/A')}")
                         st.write(f"🎯 **Experience:** {row.get('formatted_experience_level','N/A')}")
                     with col2:
-                        st.write(f"⭐ **Match Score:** {score}")
+                        st.write(f"⭐ **Match Score:** {score}%")
                     desc = str(row.get('description',''))[:400]
                     st.write(f"📝 {desc}...")
         else:
@@ -185,9 +184,8 @@ with tab3:
                         loc_filter = loc
                         break
 
-                # FAISS cosine search
+                # FAISS search
                 query_vec = model.encode([question]).astype("float32")
-                faiss.normalize_L2(query_vec)
                 distances, indices = index.search(query_vec, 5)
                 results = df.iloc[indices[0]].copy()
 
