@@ -1,11 +1,14 @@
 # Talent Intelligence Agent
 
-Ever wished you could just *ask* the job market a question and get a real answer?
+Ever wished you could just ask the job market 
+a question and get a real answer? 
 That's exactly what this project does.
 
-I built an AI agent that lets you search through 123,000+ LinkedIn job postings 
-using plain English — no filters, no dropdowns, just type your question and get 
-an answer.
+Built an AI-powered agent that lets you search 
+through 123,000+ real LinkedIn job postings 
+using plain English — no filters, no dropdowns, 
+just type your question and get an answer.
+
 
 **Built by:** Aditi Khare | MS Business Analytics, Arizona State University  
 **Dataset:** [LinkedIn Job Postings on Kaggle](https://www.kaggle.com/datasets/arshkon/linkedin-job-postings)
