@@ -124,7 +124,7 @@ it means the agent is consistently finding relevant postings, not random ones.
 4. Run all cells — takes about 5 minutes end to end
 
 **Locally**
-git clone https://github.com/aadhitikhare23-byte/talent-intelligence-agent
+git clone https://github.com/YOUR_USERNAME/talent-intelligence-agent
 cd talent-intelligence-agent
 pip install -r requirements.txt
 jupyter notebook Talent_Intelligence_Agent.ipynb
