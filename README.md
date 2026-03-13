@@ -134,10 +134,11 @@ talent-intelligence-agent/
 ```
 
 
+## 🔗 Live App
 
-🔗 Live App
 Try it here — no code, no setup needed:
-talentintelligenceagent-ffryfnazrn9e4idnbv7udc.streamlit.app
+[talentintelligenceagent-ffryfnazrn9e4idnbv7udc.streamlit.app](https://talentintelligenceagent-ffryfnazrn9e4idnbv7udc.streamlit.app)
+
 
 
 **Let's Connect**
