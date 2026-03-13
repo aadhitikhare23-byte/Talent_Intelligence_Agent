@@ -2,10 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import faiss
-import pickle
-import re
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline
 
 # ── Page Config ──────────────────────────────────────────────
 st.set_page_config(
@@ -28,10 +25,6 @@ def load_data():
     return df
 
 @st.cache_resource
-def load_llm():
-    return pipeline("text2text-generation", model="google/flan-t5-base", max_new_tokens=150)
-
-@st.cache_resource
 def build_index(_df, _model):
     texts = _df["embedtext"].fillna("").tolist()
     embeddings = _model.encode(texts, show_progress_bar=False, batch_size=64)
@@ -42,7 +35,6 @@ def build_index(_df, _model):
 
 model = load_model()
 df = load_data()
-llm = load_llm()
 index, embeddings = build_index(df, model)
 
 # ── Tabs ──────────────────────────────────────────────────────
@@ -55,7 +47,7 @@ with tab1:
     st.header("🔍 Semantic Job Search")
     st.write("Describe your skills and find matching roles from 1,653 analyst job postings.")
 
-    query = st.text_input("Enter your skills or job description", 
+    query = st.text_input("Enter your skills or job description",
                           placeholder="e.g. Python SQL Tableau data analyst dashboard")
     top_k = st.slider("Number of results", 3, 10, 5)
 
@@ -90,8 +82,8 @@ with tab2:
 
     col1, col2 = st.columns(2)
     with col1:
-        target_role = st.selectbox("Target Role", 
-            ["Data Analyst", "Business Analyst", "People Analyst", 
+        target_role = st.selectbox("Target Role",
+            ["Data Analyst", "Business Analyst", "People Analyst",
              "Financial Analyst", "HR Analyst"])
     with col2:
         user_skills_input = st.text_input("Your Skills (comma-separated)",
@@ -107,9 +99,9 @@ with tab2:
                               "aws","azure","jira","r","sap","dbt","airflow","salesforce"]
 
             desc = role_jobs["description"].fillna("").str.lower()
-            market_skills = {s: desc.str.contains(rf"\b{s}\b", na=False).sum() 
+            market_skills = {s: desc.str.contains(rf"\b{s}\b", na=False).sum()
                              for s in skill_keywords}
-            top_market = set([s for s, _ in sorted(market_skills.items(), 
+            top_market = set([s for s, _ in sorted(market_skills.items(),
                                                      key=lambda x: x[1], reverse=True)[:10]])
             user_set = set(user_skills)
             have = user_set & top_market
@@ -132,7 +124,6 @@ with tab2:
                 for s in sorted(gaps):
                     st.write(f"• {s.upper()}")
 
-            # Bar chart of top skills demand
             skills_df = pd.DataFrame(
                 sorted(market_skills.items(), key=lambda x: x[1], reverse=True)[:10],
                 columns=["Skill", "Demand"]
@@ -142,7 +133,7 @@ with tab2:
             st.warning("Please enter your skills!")
 
 # ══════════════════════════════════════════════════════════════
-# TAB 3 — RAG AGENT
+# TAB 3 — SMART AGENT (rule-based, no LLM needed)
 # ══════════════════════════════════════════════════════════════
 with tab3:
     st.header("🤖 Ask the Talent Agent")
@@ -155,29 +146,75 @@ with tab3:
         "What companies are hiring business analysts remotely?"
     ]
     selected = st.selectbox("Try an example:", ["-- Type your own --"] + example_questions)
-    question = st.text_input("Your question:", 
+    question = st.text_input("Your question:",
                               value="" if selected == "-- Type your own --" else selected)
 
     if st.button("Ask Agent", key="agent"):
         if question.strip():
             with st.spinner("Thinking..."):
-                # Retrieve
                 query_vec = model.encode([question]).astype("float32")
                 distances, indices = index.search(query_vec, 5)
                 results = df.iloc[indices[0]].copy()
-                context = results[["title","companyname","location","description"]]\
-                          .fillna("").to_string(index=False)[:600]
 
-                # Generate
-                prompt = f"""You are a talent intelligence analyst helping job seekers.
+                q = question.lower()
 
-Job postings retrieved:
-{context}
+                if "salary" in q:
+                    salary_data = df[df["title"].str.contains(
+                        "analyst", case=False, na=False)].copy()
+                    salary_data = salary_data.dropna(subset=["minsalary","maxsalary"])
+                    salary_data = salary_data[salary_data["maxsalary"] < 500000]
+                    if len(salary_data) > 0:
+                        low = int(salary_data["minsalary"].median())
+                        high = int(salary_data["maxsalary"].median())
+                        answer = (f"Based on {len(salary_data):,} analyst postings with salary data, "
+                                  f"the typical range is ${low:,}–${high:,}/year. "
+                                  f"Mid-Senior level roles average significantly higher than entry level.")
+                    else:
+                        answer = "Salary data is limited in this dataset. Most postings do not include compensation details."
 
-Question: {question}
+                elif "skill" in q or "require" in q or "need" in q:
+                    role = next((r for r in ["people analyst","data analyst",
+                                             "business analyst","financial analyst",
+                                             "hr analyst"] if r in q), "analyst")
+                    role_jobs = df[df["title"].str.contains(role, case=False, na=False)]
+                    skill_keywords = ["sql","python","tableau","power bi","excel",
+                                      "machine learning","statistics","workday",
+                                      "looker","databricks","snowflake","aws","azure"]
+                    desc = role_jobs["description"].fillna("").str.lower()
+                    market_skills = {s: desc.str.contains(rf"\b{s}\b", na=False).sum()
+                                     for s in skill_keywords}
+                    top5 = [s.upper() for s, _ in sorted(market_skills.items(),
+                                                          key=lambda x: x[1], reverse=True)[:5]]
+                    answer = (f"For {role.title()} roles ({len(role_jobs):,} postings), "
+                              f"the top 5 most demanded skills are: {', '.join(top5)}.")
 
-Answer in 2-3 sentences with specific insights:"""
-                answer = llm(prompt)[0]["generated_text"]
+                elif "location" in q or "where" in q or "city" in q:
+                    top_locs = df[df["title"].str.contains(
+                        "analyst", case=False, na=False)]["location"]\
+                        .dropna().value_counts().head(5).index.tolist()
+                    answer = f"Top locations for analyst jobs: {', '.join(top_locs)}."
+
+                elif "compan" in q or "hiring" in q or "employer" in q:
+                    top_cos = df[df["title"].str.contains(
+                        "analyst", case=False, na=False)]["companyname"]\
+                        .dropna().value_counts().head(5).index.tolist()
+                    answer = f"Top companies hiring analysts: {', '.join(top_cos)}."
+
+                elif "remote" in q:
+                    remote_jobs = df[df["location"].str.contains(
+                        "remote|united states", case=False, na=False)]
+                    top_cos = remote_jobs["companyname"].dropna()\
+                        .value_counts().head(5).index.tolist()
+                    answer = (f"Found {len(remote_jobs):,} remote/US-wide postings. "
+                              f"Top hiring companies: {', '.join(top_cos)}.")
+
+                else:
+                    top_title = results.iloc[0]["title"]
+                    top_company = results.iloc[0]["companyname"]
+                    top_loc = results.iloc[0]["location"]
+                    answer = (f"Found {len(results)} relevant roles. "
+                              f"Top match: {top_title} at {top_company} in {top_loc}. "
+                              f"Try asking about skills, salary, location, or companies!")
 
             st.subheader("💡 Answer")
             st.info(answer)
