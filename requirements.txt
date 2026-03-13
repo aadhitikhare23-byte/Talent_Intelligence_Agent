@@ -11,3 +11,4 @@ plotly
 streamlit
 torch
 scikit-learn
+numpy
