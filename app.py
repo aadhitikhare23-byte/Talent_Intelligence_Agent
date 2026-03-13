@@ -49,7 +49,7 @@ with tab1:
 
     query = st.text_input("Enter your skills or job description",
                           placeholder="e.g. Python SQL Tableau data analyst dashboard")
-    top_k = st.slider("Number of results", 3, 10, 5)
+    top_k = st.slider("Number of results", 3, 20, 10)
 
     if st.button("Search Jobs", key="search"):
         if query.strip():
@@ -57,17 +57,17 @@ with tab1:
                 query_vec = model.encode([query]).astype("float32")
                 distances, indices = index.search(query_vec, top_k)
                 results = df.iloc[indices[0]].copy()
-                results["similarity_score"] = (1 / (1 + distances[0])).round(3)
+                results["similarity_score"] = (1 / (1 + distances[0])).round(2)
 
             st.success(f"Top {top_k} matches found!")
             for _, row in results.iterrows():
-                with st.expander(f"💼 {row.get('title','N/A')} @ {row.get('company_name','N/A')} — Score: {row['similarity_score']}"):
+                with st.expander(f"💼 {row.get('title','N/A')} @ {row.get('company_name','N/A')} — Match: {row['similarity_score']:.2f}"):
                     col1, col2 = st.columns(2)
                     with col1:
                         st.write(f"📍 **Location:** {row.get('location','N/A')}")
                         st.write(f"🎯 **Experience:** {row.get('formatted_experience_level','N/A')}")
                     with col2:
-                        st.write(f"🔗 **Match Score:** {row['similarity_score']}")
+                        st.write(f"⭐ **Match Score:** {row['similarity_score']:.2f}")
                     desc = str(row.get('description',''))[:400]
                     st.write(f"📝 {desc}...")
         else:
