@@ -1,13 +1,17 @@
 # Talent Intelligence Agent
 
 Ever wished you could just ask the job market 
-a question and get a real answer? 
-That's exactly what this project does.
+a question and get a real answer?
 
-Built an AI-powered agent that lets you search 
-through 123,000+ real LinkedIn job postings 
-using plain English — no filters, no dropdowns, 
-just type your question and get an answer.
+There are tools out there — but I wanted to 
+build one myself, using real data and learn 
+what actually goes into it.
+
+This AI agent lets you search 123,000+ real 
+LinkedIn job postings in plain English — type 
+what you're looking for, pick your mode, 
+and actually get an answer.
+
 
 
 **Built by:** Aditi Khare | MS Business Analytics, Arizona State University  
