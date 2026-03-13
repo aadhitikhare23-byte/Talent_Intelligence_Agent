@@ -1,0 +1,189 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import faiss
+import pickle
+import re
+from sentence_transformers import SentenceTransformer
+from transformers import pipeline
+
+# ── Page Config ──────────────────────────────────────────────
+st.set_page_config(
+    page_title="Talent Intelligence Agent",
+    page_icon="🤖",
+    layout="wide"
+)
+
+st.title("🤖 Talent Intelligence Agent")
+st.caption("AI-powered job market insights · 123K LinkedIn postings · Built by Aditi Khare")
+
+# ── Load Data & Model ─────────────────────────────────────────
+@st.cache_resource
+def load_model():
+    return SentenceTransformer("all-MiniLM-L6-v2")
+
+@st.cache_data
+def load_data():
+    df = pd.read_csv("jobs_clean.csv")
+    return df
+
+@st.cache_resource
+def load_llm():
+    return pipeline("text2text-generation", model="google/flan-t5-base", max_new_tokens=150)
+
+@st.cache_resource
+def build_index(_df, _model):
+    texts = _df["embedtext"].fillna("").tolist()
+    embeddings = _model.encode(texts, show_progress_bar=False, batch_size=64)
+    embeddings = np.array(embeddings).astype("float32")
+    index = faiss.IndexFlatL2(embeddings.shape[1])
+    index.add(embeddings)
+    return index, embeddings
+
+model = load_model()
+df = load_data()
+llm = load_llm()
+index, embeddings = build_index(df, model)
+
+# ── Tabs ──────────────────────────────────────────────────────
+tab1, tab2, tab3 = st.tabs(["🔍 Job Search", "📊 Skills Gap Analyzer", "🤖 Ask the Agent"])
+
+# ══════════════════════════════════════════════════════════════
+# TAB 1 — SEMANTIC JOB SEARCH
+# ══════════════════════════════════════════════════════════════
+with tab1:
+    st.header("🔍 Semantic Job Search")
+    st.write("Describe your skills and find matching roles from 1,653 analyst job postings.")
+
+    query = st.text_input("Enter your skills or job description", 
+                          placeholder="e.g. Python SQL Tableau data analyst dashboard")
+    top_k = st.slider("Number of results", 3, 10, 5)
+
+    if st.button("Search Jobs", key="search"):
+        if query.strip():
+            with st.spinner("Searching..."):
+                query_vec = model.encode([query]).astype("float32")
+                distances, indices = index.search(query_vec, top_k)
+                results = df.iloc[indices[0]].copy()
+                results["similarity_score"] = (1 / (1 + distances[0])).round(3)
+
+            st.success(f"Top {top_k} matches found!")
+            for _, row in results.iterrows():
+                with st.expander(f"💼 {row.get('title','N/A')} @ {row.get('companyname','N/A')} — Score: {row['similarity_score']}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"📍 **Location:** {row.get('location','N/A')}")
+                        st.write(f"🎯 **Experience:** {row.get('formattedexperiencelevel','N/A')}")
+                    with col2:
+                        st.write(f"🔗 **Match Score:** {row['similarity_score']}")
+                    desc = str(row.get('description',''))[:400]
+                    st.write(f"📝 {desc}...")
+        else:
+            st.warning("Please enter a search query!")
+
+# ══════════════════════════════════════════════════════════════
+# TAB 2 — SKILLS GAP ANALYZER
+# ══════════════════════════════════════════════════════════════
+with tab2:
+    st.header("📊 Skills Gap Analyzer")
+    st.write("Compare your skills against what the market demands for your target role.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        target_role = st.selectbox("Target Role", 
+            ["Data Analyst", "Business Analyst", "People Analyst", 
+             "Financial Analyst", "HR Analyst"])
+    with col2:
+        user_skills_input = st.text_input("Your Skills (comma-separated)",
+            placeholder="e.g. Python, SQL, Tableau, Excel, Power BI")
+
+    if st.button("Analyze Gap", key="gap"):
+        if user_skills_input.strip():
+            user_skills = [s.strip().lower() for s in user_skills_input.split(",")]
+            role_jobs = df[df["title"].str.contains(target_role, case=False, na=False)]
+
+            skill_keywords = ["sql","python","tableau","power bi","excel","machine learning",
+                              "statistics","workday","looker","databricks","snowflake",
+                              "aws","azure","jira","r","sap","dbt","airflow","salesforce"]
+
+            desc = role_jobs["description"].fillna("").str.lower()
+            market_skills = {s: desc.str.contains(rf"\b{s}\b", na=False).sum() 
+                             for s in skill_keywords}
+            top_market = set([s for s, _ in sorted(market_skills.items(), 
+                                                     key=lambda x: x[1], reverse=True)[:10]])
+            user_set = set(user_skills)
+            have = user_set & top_market
+            gaps = top_market - user_set
+
+            st.subheader(f"📋 Results for {target_role} ({len(role_jobs)} postings)")
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Match Score", f"{len(have)}/{len(top_market)}")
+            col2.metric("Skills You Have ✅", len(have))
+            col3.metric("Skills to Learn 📚", len(gaps))
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.success("✅ Skills You Have")
+                for s in sorted(have):
+                    st.write(f"• {s.upper()}")
+            with col_b:
+                st.error("📚 Skills to Learn")
+                for s in sorted(gaps):
+                    st.write(f"• {s.upper()}")
+
+            # Bar chart of top skills demand
+            skills_df = pd.DataFrame(
+                sorted(market_skills.items(), key=lambda x: x[1], reverse=True)[:10],
+                columns=["Skill", "Demand"]
+            )
+            st.bar_chart(skills_df.set_index("Skill"))
+        else:
+            st.warning("Please enter your skills!")
+
+# ══════════════════════════════════════════════════════════════
+# TAB 3 — RAG AGENT
+# ══════════════════════════════════════════════════════════════
+with tab3:
+    st.header("🤖 Ask the Talent Agent")
+    st.write("Ask natural language questions about the job market.")
+
+    example_questions = [
+        "What skills do I need for a People Analyst role?",
+        "What is the salary range for a data analyst?",
+        "Which locations have the most business analyst jobs?",
+        "What companies are hiring business analysts remotely?"
+    ]
+    selected = st.selectbox("Try an example:", ["-- Type your own --"] + example_questions)
+    question = st.text_input("Your question:", 
+                              value="" if selected == "-- Type your own --" else selected)
+
+    if st.button("Ask Agent", key="agent"):
+        if question.strip():
+            with st.spinner("Thinking..."):
+                # Retrieve
+                query_vec = model.encode([question]).astype("float32")
+                distances, indices = index.search(query_vec, 5)
+                results = df.iloc[indices[0]].copy()
+                context = results[["title","companyname","location","description"]]\
+                          .fillna("").to_string(index=False)[:600]
+
+                # Generate
+                prompt = f"""You are a talent intelligence analyst helping job seekers.
+
+Job postings retrieved:
+{context}
+
+Question: {question}
+
+Answer in 2-3 sentences with specific insights:"""
+                answer = llm(prompt)[0]["generated_text"]
+
+            st.subheader("💡 Answer")
+            st.info(answer)
+
+            st.subheader("📄 Source Jobs Used")
+            st.dataframe(results[["title","companyname","location",
+                                   "formattedexperiencelevel"]].reset_index(drop=True))
+        else:
+            st.warning("Please ask a question!")
