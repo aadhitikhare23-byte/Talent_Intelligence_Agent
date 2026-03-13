@@ -26,7 +26,7 @@ def load_data():
 
 @st.cache_resource
 def build_index(_df, _model):
-    texts = _df["embedtext"].fillna("").tolist()
+    texts = _df["embed_text"].fillna("").tolist()
     embeddings = _model.encode(texts, show_progress_bar=False, batch_size=64)
     embeddings = np.array(embeddings).astype("float32")
     index = faiss.IndexFlatL2(embeddings.shape[1])
