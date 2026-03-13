@@ -45,7 +45,7 @@ tab1, tab2, tab3 = st.tabs(["🔍 Job Search", "📊 Skills Gap Analyzer", "🤖
 # ══════════════════════════════════════════════════════════════
 with tab1:
     st.header("🔍 Semantic Job Search")
-    st.write("Describe your skills and find matching roles from 1,653 analyst job postings.")
+    st.write("Describe your skills and find matching roles from analyst job postings.")
 
     query = st.text_input("Enter your skills or job description",
                           placeholder="e.g. Python SQL Tableau data analyst dashboard")
@@ -61,11 +61,11 @@ with tab1:
 
             st.success(f"Top {top_k} matches found!")
             for _, row in results.iterrows():
-                with st.expander(f"💼 {row.get('title','N/A')} @ {row.get('companyname','N/A')} — Score: {row['similarity_score']}"):
+                with st.expander(f"💼 {row.get('title','N/A')} @ {row.get('company_name','N/A')} — Score: {row['similarity_score']}"):
                     col1, col2 = st.columns(2)
                     with col1:
                         st.write(f"📍 **Location:** {row.get('location','N/A')}")
-                        st.write(f"🎯 **Experience:** {row.get('formattedexperiencelevel','N/A')}")
+                        st.write(f"🎯 **Experience:** {row.get('formatted_experience_level','N/A')}")
                     with col2:
                         st.write(f"🔗 **Match Score:** {row['similarity_score']}")
                     desc = str(row.get('description',''))[:400]
@@ -107,7 +107,7 @@ with tab2:
             have = user_set & top_market
             gaps = top_market - user_set
 
-            st.subheader(f"📋 Results for {target_role} ({len(role_jobs)} postings)")
+            st.subheader(f"📋 Results for {target_role} ({len(role_jobs):,} postings)")
 
             col1, col2, col3 = st.columns(3)
             col1.metric("Match Score", f"{len(have)}/{len(top_market)}")
@@ -133,7 +133,7 @@ with tab2:
             st.warning("Please enter your skills!")
 
 # ══════════════════════════════════════════════════════════════
-# TAB 3 — SMART AGENT (rule-based, no LLM needed)
+# TAB 3 — SMART AGENT
 # ══════════════════════════════════════════════════════════════
 with tab3:
     st.header("🤖 Ask the Talent Agent")
@@ -161,11 +161,11 @@ with tab3:
                 if "salary" in q:
                     salary_data = df[df["title"].str.contains(
                         "analyst", case=False, na=False)].copy()
-                    salary_data = salary_data.dropna(subset=["minsalary","maxsalary"])
-                    salary_data = salary_data[salary_data["maxsalary"] < 500000]
+                    salary_data = salary_data.dropna(subset=["min_salary","max_salary"])
+                    salary_data = salary_data[salary_data["max_salary"] < 500000]
                     if len(salary_data) > 0:
-                        low = int(salary_data["minsalary"].median())
-                        high = int(salary_data["maxsalary"].median())
+                        low = int(salary_data["min_salary"].median())
+                        high = int(salary_data["max_salary"].median())
                         answer = (f"Based on {len(salary_data):,} analyst postings with salary data, "
                                   f"the typical range is ${low:,}–${high:,}/year. "
                                   f"Mid-Senior level roles average significantly higher than entry level.")
@@ -196,21 +196,21 @@ with tab3:
 
                 elif "compan" in q or "hiring" in q or "employer" in q:
                     top_cos = df[df["title"].str.contains(
-                        "analyst", case=False, na=False)]["companyname"]\
+                        "analyst", case=False, na=False)]["company_name"]\
                         .dropna().value_counts().head(5).index.tolist()
                     answer = f"Top companies hiring analysts: {', '.join(top_cos)}."
 
                 elif "remote" in q:
                     remote_jobs = df[df["location"].str.contains(
                         "remote|united states", case=False, na=False)]
-                    top_cos = remote_jobs["companyname"].dropna()\
+                    top_cos = remote_jobs["company_name"].dropna()\
                         .value_counts().head(5).index.tolist()
                     answer = (f"Found {len(remote_jobs):,} remote/US-wide postings. "
                               f"Top hiring companies: {', '.join(top_cos)}.")
 
                 else:
                     top_title = results.iloc[0]["title"]
-                    top_company = results.iloc[0]["companyname"]
+                    top_company = results.iloc[0]["company_name"]
                     top_loc = results.iloc[0]["location"]
                     answer = (f"Found {len(results)} relevant roles. "
                               f"Top match: {top_title} at {top_company} in {top_loc}. "
@@ -220,7 +220,7 @@ with tab3:
             st.info(answer)
 
             st.subheader("📄 Source Jobs Used")
-            st.dataframe(results[["title","companyname","location",
-                                   "formattedexperiencelevel"]].reset_index(drop=True))
+            st.dataframe(results[["title","company_name","location",
+                                   "formatted_experience_level"]].reset_index(drop=True))
         else:
             st.warning("Please ask a question!")
