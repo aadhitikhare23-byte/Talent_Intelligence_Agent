@@ -28,18 +28,20 @@ Things like:
 It's not just keyword search. The agent understands the *meaning* of your question,
 finds the most relevant job postings, and gives you a direct, data-backed answer.
 
+```
 You ask a question
-↓
+        ↓
 Agent encodes it into a vector (semantic understanding)
-↓
+        ↓
 FAISS searches 1,653 analyst job postings for closest matches
-↓
+        ↓
 Smart answer engine extracts the insight you actually need
-↓
+        ↓
 You get a clean, specific answer
-
+```
 
 No API key needed. Everything runs locally for free.
+
 
 ---
 
