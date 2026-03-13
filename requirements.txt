@@ -1,0 +1,13 @@
+langchain
+langgraph
+langchain-community
+sentence-transformers
+faiss-cpu
+transformers
+mlflow
+kaggle
+pandas
+plotly
+streamlit
+torch
+scikit-learn
